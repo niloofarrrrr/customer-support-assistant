@@ -1,0 +1,18 @@
+[project]
+name = "customer-support-assistant"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "openai>=3.31.0",
+    "pydantic>=2.14.1",
+    "python-dotenv>=1.2.4",
+    "streamlit>=1.66.0",
+    "tree>=0.2.4",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]

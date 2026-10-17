@@ -1,0 +1,14 @@
+
+ticket_id,subject,description
+T001,Duplicate payment,"I was charged twice for my monthly subscription. Can you help me resolve this?"
+T002,Application crashes,"The mobile application closes immediately whenever I try to open it. I cannot use the service."
+T003,Password reset problem,"I requested a password reset but the reset link says it has expired."
+T004,Subscription plans,"Could you explain the differences between your basic and premium plans?"
+T005,Refund request,"I purchased an annual subscription by mistake. How can I request a refund?"
+T006,Export not working,"When I export my account report the downloaded CSV file is empty."
+T007,Account locked,"My account was locked after several login attempts and I cannot access my workspace."
+T008,Job opportunities,"I would like to know whether your company is currently hiring software developers."
+T009,Service outage,"Our entire team cannot access the platform. Nobody can complete their work."
+T010,Invoice copy,"Could you provide a copy of my last subscription invoice?"
+T011,API availability,"Does your service provide an API for integration with other applications?"
+T012,Unclear request,"I need help with something related to my account. Please contact me."
