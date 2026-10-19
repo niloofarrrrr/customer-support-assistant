@@ -32,6 +32,7 @@ class FakeStreamlit(ModuleType):
         self.uploaded = None
         self.rendered_ticket_rows = []
         self.row_callbacks = {}
+        self.button_callbacks = {}
         self.category_choice = "default"
         self.priority_choice = "default"
         self.messages = []
@@ -104,11 +105,19 @@ class FakeStreamlit(ModuleType):
             )
             # In actual Streamlit, callbacks execute before the next render.
             return False
+        if kwargs.get("on_click") is not None:
+            self.button_callbacks[label] = (kwargs["on_click"], kwargs.get("args", ()))
+            return False
         return not kwargs.get("disabled", False) and label in self.pressed
 
     def click_ticket(self, ticket_id):
         """Simulate a native button callback BEFORE the following script rerun."""
         callback, args = self.row_callbacks[f"ticket_row_{ticket_id}"]
+        callback(*args)
+
+    def click_button(self, label):
+        """Run the registered callback before simulating the page rerun."""
+        callback, args = self.button_callbacks[label]
         callback(*args)
 
     def selectbox(self, label, options, *, index=0, **kwargs):
@@ -213,13 +222,16 @@ def test_analyze_button_saves_result(ui, monkeypatch):
     _, ticket = seed_ticket(app.DB_PATH)
     analyzer = Mock(return_value=sample_analysis())
     monkeypatch.setattr(app, "TicketService", lambda repo: TicketService(repo, analyzer=analyzer))
-    st.pressed.add("Analyze ticket")
-    with pytest.raises(Rerun):
-        app.main()
+    # Rendering only registers the callback; the AI call runs before rerender.
+    app.main()
+    analyzer.assert_not_called()
+    st.click_button("Analyze ticket")
     analyzer.assert_called_once_with(ticket)
     repo = TicketRepository(app.DB_PATH)
     assert repo.get_ticket("T001").status is TicketStatus.PROCESSED
     assert repo.get_analysis("T001").analysis == sample_analysis()
+    app.main()
+    assert ("success", "Analysis saved for T001.") in st.messages
 
 
 def test_failed_analysis_exposes_retry_and_does_not_save_result(ui, monkeypatch):
@@ -228,16 +240,42 @@ def test_failed_analysis_exposes_retry_and_does_not_save_result(ui, monkeypatch)
     seed_ticket(app.DB_PATH)
     analyzer = Mock(side_effect=AIServiceError("Provider unavailable"))
     monkeypatch.setattr(app, "TicketService", lambda repo: TicketService(repo, analyzer=analyzer))
-    st.pressed.add("Analyze ticket")
-    with pytest.raises(Rerun):
-        app.main()
+    app.main()
+    analyzer.assert_not_called()
+    st.click_button("Analyze ticket")
     repo = TicketRepository(app.DB_PATH)
     assert repo.get_ticket("T001").status is TicketStatus.FAILED
     assert repo.get_analysis("T001") is None
-    st.pressed.clear()
     app.main()
+    assert "Retry analysis" in st.button_callbacks
     assert any("can be retried" in text for level, text in st.messages if level == "warning")
     assert any("Analysis failed" in text for level, text in st.messages if level == "error")
+
+
+def test_retry_uses_callback_without_rerendering_inbox_during_analysis(ui, monkeypatch):
+    app, st = ui
+    st.session_state["selected_ticket_id"] = "T001"
+    seed_ticket(app.DB_PATH)
+    analyzer = Mock(side_effect=[AIServiceError("Temporary outage"), sample_analysis()])
+    monkeypatch.setattr(app, "TicketService", lambda repo: TicketService(repo, analyzer=analyzer))
+
+    app.main()
+    assert analyzer.call_count == 0
+    st.click_button("Analyze ticket")
+    assert analyzer.call_count == 1
+
+    # The failed rerender registers the retry callback, but does no AI work.
+    app.main()
+    before = len(st.rendered_ticket_rows)
+    assert "Retry analysis" in st.button_callbacks
+    st.click_button("Retry analysis")
+    assert analyzer.call_count == 2
+    assert len(st.rendered_ticket_rows) == before
+
+    # Streamlit rerenders once after the API request finishes.
+    app.main()
+    assert TicketRepository(app.DB_PATH).get_ticket("T001").status is TicketStatus.PROCESSED
+    assert ("success", "Analysis saved for T001.") in st.messages
 
 
 def test_operator_changes_category_and_priority_without_overwriting_ai(ui):

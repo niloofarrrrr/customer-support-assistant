@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterator
+from typing import Generator
 
 from .models import Category, Priority, Ticket, TicketAnalysis, TicketStatus
 
@@ -60,7 +60,7 @@ class TicketRepository:
         self.db_path = Path(db_path)
 
     @contextmanager
-    def _connection(self) -> Iterator[sqlite3.Connection]:
+    def _connection(self) -> Generator[sqlite3.Connection, None, None]:
         connection = sqlite3.connect(self.db_path)
         try:
             connection.row_factory = sqlite3.Row

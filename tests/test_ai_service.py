@@ -1,22 +1,23 @@
-
 from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
 
-from support_assistant.models import TicketAnalysis
+import support_assistant.ai_service as ai_module
 from support_assistant.ai_service import (
     AIServiceError,
     GeminiTicketAnalysis,
     analyze_ticket,
     create_client,
 )
-from support_assistant.models import (
-    Ticket,
-    TicketAnalysis,
-    Category,
-    Priority,
-)
+from support_assistant.models import Category, Priority, Ticket, TicketAnalysis
+
+
+@pytest.fixture(autouse=True)
+def configured_test_models(monkeypatch):
+    """Tests must not depend on a developer's .env model settings."""
+    monkeypatch.setattr(ai_module, "GEMINI_MODEL", "test-gemini-model")
+    monkeypatch.setattr(ai_module, "OPENAI_MODEL", "test-openai-model")
 
 
 @pytest.fixture

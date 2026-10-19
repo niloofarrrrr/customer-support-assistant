@@ -49,6 +49,24 @@ def _notify(level: str, message: str) -> None:
     st.rerun()
 
 
+def _run_ticket_analysis(service: TicketService, ticket_id: str) -> None:
+    """Analyze before the next page render, avoiding duplicate in-flight panels.
+
+    Streamlit executes button callbacks before rerunning the app. Running the
+    slow API request here keeps the inbox and details from being rebuilt while
+    the request is in progress. The next automatic rerun displays the result.
+    """
+    try:
+        with st.spinner("Analyzing ticket..."):
+            service.analyze_ticket(ticket_id)
+    except AIServiceError as exc:
+        st.session_state["notice"] = ("error", f"Analysis failed for {ticket_id}: {exc}")
+    except (AnalysisAlreadyExistsError, TicketNotFoundError, sqlite3.Error, OSError) as exc:
+        st.session_state["notice"] = ("error", f"Could not save the analysis: {exc}")
+    else:
+        st.session_state["notice"] = ("success", f"Analysis saved for {ticket_id}.")
+
+
 def _status_html(status: TicketStatus) -> str:
     return f'<span class="sd-pill {status.value}">● {label_for_status(status)}</span>'
 
@@ -234,19 +252,13 @@ def _analysis_panel(service: TicketService, record) -> None:
                 unsafe_allow_html=True,
             )
 
-        if st.button(
+        st.button(
             "Retry analysis" if record.status is TicketStatus.FAILED else "Analyze ticket",
-            type="primary", use_container_width=True,
-        ):
-            try:
-                with st.spinner("Analyzing ticket..."):
-                    service.analyze_ticket(ticket_id)
-            except AIServiceError as exc:
-                _notify("error", f"Analysis failed for {ticket_id}: {exc}")
-            except (AnalysisAlreadyExistsError, TicketNotFoundError, sqlite3.Error, OSError) as exc:
-                st.error(f"Could not save the analysis: {exc}")
-            else:
-                _notify("success", f"Analysis saved for {ticket_id}.")
+            type="primary",
+            use_container_width=True,
+            on_click=_run_ticket_analysis,
+            args=(service, ticket_id),
+        )
         return
 
     cat_col, pri_col = st.columns(2, gap="small")
