@@ -112,34 +112,36 @@ Streamlit and FastAPI use the same service layer and local SQLite database; **St
 
 ### API example
 
-With the API server running, these commands demonstrate the same workflow:
+With the API server running, these commands demonstrate the same workflow in Windows PowerShell:
 
 **Import the sample CSV:**
 
-```bash
-curl -X POST http://127.0.0.1:8000/tickets/import \
-  -F "file=@data/sample_tickets.csv"
+```powershell
+curl.exe -X POST http://127.0.0.1:8000/tickets/import -F "file=@data/sample_tickets.csv"
 ```
 
 **List and analyze tickets:**
 
-```bash
-curl http://127.0.0.1:8000/tickets
-curl -X POST http://127.0.0.1:8000/tickets/T001/analyze
+```powershell
+curl.exe http://127.0.0.1:8000/tickets
+curl.exe -X POST http://127.0.0.1:8000/tickets/T001/analyze
 ```
 
 **Correct a classification:**
 
-```bash
-curl -X PATCH http://127.0.0.1:8000/tickets/T001/classification \
-  -H "Content-Type: application/json" \
-  -d '{"category":"technical_support","priority":"high"}'
+```powershell
+$body = @{
+    category = "technical_support"
+    priority = "high"
+} | ConvertTo-Json
+
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/tickets/T001/classification" -Method Patch -ContentType "application/json" -Body $body
 ```
 
 **View the saved result:**
 
-```bash
-curl http://127.0.0.1:8000/tickets/T001/analysis
+```powershell
+curl.exe http://127.0.0.1:8000/tickets/T001/analysis
 ```
 
 The analysis response includes the original AI values (`analysis`), any manual overrides (`operator_category`, `operator_priority`), and the values to use after applying overrides (`effective_category`, `effective_priority`). In a `PATCH` request, **omitting a field keeps its existing override**; setting it to `null` clears that override and restores the AI value.
