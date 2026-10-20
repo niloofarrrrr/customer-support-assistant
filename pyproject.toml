@@ -12,7 +12,6 @@ dependencies = [
     "python-multipart>=0.0.20",
     "python-dotenv>=1.2.4",
     "streamlit>=1.66.0",
-    "tree>=0.2.4",
     "uvicorn>=0.30.0",
 ]
 

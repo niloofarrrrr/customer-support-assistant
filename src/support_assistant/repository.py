@@ -9,6 +9,7 @@ from typing import Generator
 
 from .models import Category, Priority, Ticket, TicketAnalysis, TicketStatus
 
+UNSET = object()
 
 class DuplicateTicketError(ValueError):
     """A ticket with the same ID is already stored."""
@@ -132,6 +133,35 @@ class TicketRepository:
                     ) from exc
                 raise
 
+
+    def save_tickets(self, tickets: list[Ticket]) -> list[str]:
+        """Insert many tickets in ONE transaction.
+
+        Tickets whose ID already exists are skipped (not overwritten).
+        Returns the IDs that were skipped. If a database error happens,
+        nothing from this call is saved.
+        """
+        skipped_ids: list[str] = []
+        with self._connection() as connection:
+            for ticket in tickets:
+                cursor = connection.execute(
+                    """
+                    INSERT INTO tickets (ticket_id, subject, description, status)
+                    VALUES (?, ?, ?, ?)
+                    ON CONFLICT(ticket_id) DO NOTHING
+                    """,
+                    (
+                        ticket.ticket_id,
+                        ticket.subject,
+                        ticket.description,
+                        TicketStatus.PENDING.value,
+                    ),
+                )
+                if cursor.rowcount == 0:  # nothing inserted = ID already existed
+                    skipped_ids.append(ticket.ticket_id)
+        return skipped_ids
+
+    
     def get_ticket(self, ticket_id: str) -> StoredTicket | None:
         """Return a stored ticket, or None if its ID is unknown."""
         with self._connection() as connection:
@@ -241,25 +271,37 @@ class TicketRepository:
     def update_classification(
         self,
         ticket_id: str,
-        category: Category | None,
-        priority: Priority | None,
+        category: Category | None | object = UNSET,
+        priority: Priority | None | object = UNSET,
     ) -> None:
-        """Set human overrides. None clears the override for that field."""
-        # Validate any string inputs before opening a database transaction.
-        corrected_category = Category(category) if category is not None else None
-        corrected_priority = Priority(priority) if priority is not None else None
+        """Update only the fields that were given.
+
+        - a value sets the override
+        - None clears the override
+        - UNSET (the default) leaves the field unchanged
+        """
+        assignments: list[str] = []
+        values: list[str | None] = []
+
+        if category is not UNSET:
+            checked = Category(category) if category is not None else None
+            assignments.append("operator_category = ?")
+            values.append(checked.value if checked else None)
+
+        if priority is not UNSET:
+            checked = Priority(priority) if priority is not None else None
+            assignments.append("operator_priority = ?")
+            values.append(checked.value if checked else None)
+
+        if not assignments:
+            raise ValueError("Provide a category and/or a priority.")
+
+        values.append(ticket_id)
         with self._connection() as connection:
             result = connection.execute(
-                """
-                UPDATE ticket_results
-                SET operator_category = ?, operator_priority = ?
-                WHERE ticket_id = ?
-                """,
-                (
-                    corrected_category.value if corrected_category else None,
-                    corrected_priority.value if corrected_priority else None,
-                    ticket_id,
-                ),
+                f"UPDATE ticket_results SET {', '.join(assignments)} "
+                "WHERE ticket_id = ?",
+                values,
             )
             if result.rowcount == 0:
                 raise AnalysisNotFoundError(

@@ -20,7 +20,7 @@ This separation keeps the application easier to maintain and test without tightl
 ### Project structure
 
 ```text
-Customer _Support_Assistant/
+Customer_Support_Assistant/
 ├── .streamlit/
 │   └── config.toml
 ├── assets/
@@ -61,8 +61,7 @@ Customer _Support_Assistant/
     ├── test_app.py
     ├── test_csv_loader.py
     ├── test_repository.py
-    ├── test_ticket_service.py
-    └── test_validation.py
+    └── test_ticket_service.py
 ```
 
 ### Responsibilities of the main files
@@ -79,8 +78,6 @@ Customer _Support_Assistant/
 | `ticket_service.py` | Coordinate ticket imports, single-ticket analysis, and operator corrections. |
 | `config.py` | Load the selected AI provider and model configuration from environment variables. |
 
-### single-ticket and batch processing
-Reusable ticket-processing function, used by both workflows.
 
 ## LLM Requests
 
@@ -143,7 +140,8 @@ When an operator correction exists, it takes precedence over the AI prediction. 
 - If AI analysis fails with a handled error, the ticket is marked as `failed` and remains available for retry.
 - Already processed tickets cannot be analyzed again, avoiding unnecessary API calls and preserving existing results.
 - Saving an AI result and updating the ticket status happen within a single database transaction to prevent inconsistent records.
-
+- CSV import saves all new tickets in a single transaction. If a database error occurs, none of the tickets from that file are saved.
+- Operator corrections update only the fields that were sent, so two partial updates cannot overwrite each other.
 
 
 

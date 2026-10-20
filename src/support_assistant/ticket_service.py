@@ -19,9 +19,8 @@ from .repository import (
     StoredTicket,
     TicketNotFoundError,
     TicketRepository,
-    DuplicateTicketError,
 )
-
+from .repository import UNSET 
 
 @dataclass(frozen=True)
 class ImportSummary:
@@ -42,24 +41,15 @@ class TicketService:
         self._analyzer = analyzer if analyzer is not None else analyze_ticket
 
     def import_tickets(self, file: BinaryIO) -> ImportSummary:
-        """Validate the whole CSV, then insert new tickets and skip stored IDs.
+        """Validate the whole CSV, then save all new tickets in one transaction.
 
-        Invalid CSV content never causes a partial import. If a database write
-        fails after validation, earlier successful inserts remain stored.
+        Invalid CSV content is rejected before any write. If the database
+        fails during the import, nothing from this file is saved.
         """
-        tickets = load_tickets(file)  # Validate *all* rows before the first write.
-        imported = 0
-        skipped_ids: list[str] = []
-        for ticket in tickets:
-            try:
-                self.repository.save_ticket(ticket)
-            except DuplicateTicketError:
-                skipped_ids.append(ticket.ticket_id)
-            else:
-                imported += 1
-
+        tickets = load_tickets(file)  # Validate *all* rows first.
+        skipped_ids = self.repository.save_tickets(tickets)
         return ImportSummary(
-            imported=imported,
+            imported=len(tickets) - len(skipped_ids),
             skipped=len(skipped_ids),
             skipped_ids=tuple(skipped_ids),
         )
@@ -116,8 +106,8 @@ class TicketService:
     def correct_classification(
         self,
         ticket_id: str,
-        category: Category | None,
-        priority: Priority | None,
+        category: Category | None | object = UNSET,
+        priority: Priority | None | object = UNSET,
     ) -> StoredAnalysis:
         """Set/clear human overrides; never modify the AI's original output."""
         self.repository.update_classification(ticket_id, category, priority)

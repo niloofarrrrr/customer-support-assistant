@@ -185,7 +185,7 @@ Both interfaces call `TicketService`, which connects CSV validation, AI analysis
 ```text
 Streamlit (app.py)       FastAPI (api.py)
         \                   /
-          TicketService
+            TicketService
           /     |      \
  CSV loader  AI service  Repository
  (Pydantic)  (LLM +      (SQLite)
@@ -193,7 +193,7 @@ Streamlit (app.py)       FastAPI (api.py)
 ```
 
 1. The entire CSV is validated before ticket import begins.
-2. New tickets are inserted into SQLite with status `pending`.
+2. New tickets are inserted into SQLite with status `pending`. Valid new tickets are inserted in a single transaction.
 3. When the operator requests analysis, the service sends the selected ticket to the configured LLM provider.
 4. The returned category, priority, and draft are validated using Pydantic before saving.
 5. The analysis and its `processed` status are saved in a single SQLite transaction.
@@ -265,6 +265,18 @@ This is a **local demonstration application**, not a production-ready customer-s
 - **Local persistence:** SQLite is suitable for this assignment, but the app has no multi-user access control or centralized storage.
 - **No API authentication or rate limiting:** Run the FastAPI server locally; do not expose it publicly without additional security controls.
 - **External API dependency:** Analysis requires a valid provider key, an available model, network access, and may incur provider charges. LLM quality depends on the ticket and model.
-- **CSV import constraints:** Files must follow the three-column format. The FastAPI upload endpoint has a 2 MB size limit. Validation is performed before insertion; an unexpected database failure during import can leave previously inserted rows saved.
+- **CSV import constraints:** Files must follow the three-column format. The FastAPI upload endpoint has a 2 MB size limit. Validation is performed before insertion.
 - **Sample data:** The bundled tickets are synthetic. Do not upload private or confidential customer information without appropriate data-handling controls; ticket content is sent to the selected AI provider for analysis.
+- **Concurrent analysis:** If the same ticket is analyzed at the same moment from two places (Streamlit and the API), both may call the LLM. Only the first result is saved and the second request returns a conflict error. A production version would mark the ticket as "analyzing" before calling the LLM.
 
+
+
+## AI assistant disclosure
+
+I used AI coding assistants (Claude, ChatGPT) during this project for:
+
+- discussing the architecture and design trade-offs
+- reviewing my code and finding weaknesses 
+- explaining how to fix those issues
+
+I reviewed, tested, and understand the code in this repository. All tests were run locally, and the LLM integrations (Gemini/OpenAI) were tested with real API calls.

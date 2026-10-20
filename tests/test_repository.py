@@ -3,7 +3,7 @@
 import sqlite3
 
 import pytest
-
+from types import SimpleNamespace
 from support_assistant.models import Category, Priority, Ticket, TicketAnalysis, TicketStatus
 from support_assistant.repository import (
     AnalysisAlreadyExistsError,
@@ -215,3 +215,40 @@ def test_foreign_keys_are_enabled(repository):
                 """,
                 ("missing", "billing", "low", "Draft", "2026-10-18T00:00:00+00:00"),
             )
+
+def test_save_tickets_skips_existing_ids(repository):
+    first = Ticket(ticket_id="T1", subject="A", description="A")
+    repository.save_ticket(first)
+
+    skipped = repository.save_tickets([
+        Ticket(ticket_id="T1", subject="Changed", description="Changed"),
+        Ticket(ticket_id="T2", subject="B", description="B"),
+    ])
+
+    assert skipped == ["T1"]
+    assert len(repository.get_all_tickets()) == 2
+    assert repository.get_ticket("T1").ticket.subject == "A"  # not overwritten
+
+
+def test_save_tickets_rolls_back_on_database_error(repository):
+    good = Ticket(ticket_id="T1", subject="A", description="A")
+    # subject=None breaks the NOT NULL rule, so the database will fail
+    bad = SimpleNamespace(ticket_id="T2", subject=None, description="B")
+
+    with pytest.raises(sqlite3.IntegrityError):
+        repository.save_tickets([good, bad])
+
+    assert repository.get_all_tickets() == []  # T1 was NOT left behind
+
+
+def test_update_classification_changes_only_given_field(
+    repository, sample_ticket, sample_analysis
+):
+    repository.save_ticket(sample_ticket)
+    repository.save_analysis("T001", sample_analysis)
+    repository.update_classification("T001", category=Category.OTHER)
+    repository.update_classification("T001", priority=Priority.HIGH)
+
+    stored = repository.get_analysis("T001")
+    assert stored.operator_category == Category.OTHER  # first change kept
+    assert stored.operator_priority == Priority.HIGH

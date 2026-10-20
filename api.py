@@ -32,6 +32,7 @@ from support_assistant.repository import (  # noqa: E402
     StoredTicket,
     TicketNotFoundError,
     TicketRepository,
+    UNSET,
 )
 from support_assistant.ticket_service import TicketService  # noqa: E402
 
@@ -207,8 +208,8 @@ def create_app(
                 raise HTTPException(status_code=404, detail=f"Ticket '{ticket_id}' does not exist.")
             raise HTTPException(status_code=409, detail="Analyze this ticket before correcting it.")
 
-        category = changes.category if "category" in supplied else current.operator_category
-        priority = changes.priority if "priority" in supplied else current.operator_priority
+        category = changes.category if "category" in supplied else UNSET
+        priority = changes.priority if "priority" in supplied else UNSET
         return AnalysisOut.from_record(
             service.correct_classification(ticket_id, category, priority)
         )
