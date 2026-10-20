@@ -10,7 +10,7 @@ from io import BytesIO
 import logging
 from pathlib import Path
 import sqlite3
-import sys
+
 from typing import Callable
 
 from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile, status
@@ -18,14 +18,14 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 
 ROOT = Path(__file__).resolve().parent
-sys.path.insert(0, str(ROOT / "src"))
 
-from support_assistant.ai_service import AIServiceError  # noqa: E402
-from support_assistant.csv_loader import CSVImportError  # noqa: E402
-from support_assistant.models import (  # noqa: E402
+
+from support_assistant.ai_service import AIServiceError  
+from support_assistant.csv_loader import CSVImportError  
+from support_assistant.models import (  
     Category, Priority, Ticket, TicketAnalysis, TicketStatus,
 )
-from support_assistant.repository import (  # noqa: E402
+from support_assistant.repository import (  
     AnalysisAlreadyExistsError,
     AnalysisNotFoundError,
     StoredAnalysis,
@@ -34,7 +34,7 @@ from support_assistant.repository import (  # noqa: E402
     TicketRepository,
     UNSET,
 )
-from support_assistant.ticket_service import TicketService  # noqa: E402
+from support_assistant.ticket_service import TicketService 
 
 logger = logging.getLogger(__name__)
 DB_PATH = ROOT / "data" / "local" / "tickets.db"

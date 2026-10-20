@@ -8,25 +8,22 @@ from html import escape
 from io import BytesIO
 from pathlib import Path
 import sqlite3
-import sys
 
 import streamlit as st
 
-# Resolve imports when running the app directly from a src-layout project.
 ROOT = Path(__file__).resolve().parent
-sys.path.insert(0, str(ROOT / "src"))
 
-from support_assistant.ai_service import AIServiceError  # noqa: E402
-from support_assistant.config import AI_PROVIDER  # noqa: E402
-from support_assistant.csv_loader import CSVImportError  # noqa: E402
-from support_assistant.models import Category, Priority, TicketStatus  # noqa: E402
-from support_assistant.repository import (  # noqa: E402
+from support_assistant.ai_service import AIServiceError  
+from support_assistant.config import AI_PROVIDER  
+from support_assistant.csv_loader import CSVImportError 
+from support_assistant.models import Category, Priority, TicketStatus 
+from support_assistant.repository import (  
     AnalysisAlreadyExistsError,
     AnalysisNotFoundError,
     TicketNotFoundError,
     TicketRepository,
 )
-from support_assistant.ticket_service import TicketService  # noqa: E402
+from support_assistant.ticket_service import TicketService  
 
 DB_PATH = ROOT / "data" / "local" / "tickets.db"
 
